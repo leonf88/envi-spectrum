@@ -315,7 +315,7 @@ pro process, fpath, outdir, smoothVar, thresh1, thresh2
     ; continuum removal graph
     p3 = PLOT(wl[xs:xe], cr_ref, '-:', OVERPLOT =1, xrange=[min(wl),max(wl)],yrange=[0,YRANGE_HIGH], xstyle=1,ystyle=1,$
           name = "包络线去除后的光谱曲线", /current) ; continuum removal  
-        
+   
     for j = 0, n_elements(absp_region) - 1 do begin
       absp_x = absp_region[j] 
       absp_y = rdata[absp_x + xs]
