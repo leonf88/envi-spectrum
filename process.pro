@@ -58,16 +58,11 @@ function continuum_remove, wave, refl, ws, we
     y=[tmp_ref[i],tmp_ref[i-1]]
     p=invert(x)##y
     interp_res = p[0] * wave[tmp_idx[i-1]+1:tmp_idx[i]]+p[1]
-    ; print,refl[tmp_idx[i]], interp_res[-1]
     interp_ref=[interp_ref , interp_res]
   end
   interp_ref=[interp_ref,refl[len]]
   cr_ref=refl/interp_ref
   
-;  plot, wave, interp_ref, /noerase, xrange=[ws, we], yrange=[0,1], xstyle=1, ystyle=1
-;  plot, tmp_wav, tmp_ref, /ynozero, psym=4,/noerase, xrange=[ws, we],yrange=[0,1], xstyle=1, ystyle=1
-;  
-;  plot, wave,smooth(cr_ref,60),/noerase, xrange=[ws, we],yrange=[0,1], xstyle=1,ystyle=1
   return, cr_ref
 end
 
@@ -122,13 +117,16 @@ function remove_anomal_region, orig_data
   return, set
 end
 
+; calculate the derivative of the curve
+; smooth the derivative curve for each point
 function get_derive, data
   d_deriv = deriv(indgen(n_elements(data)), data)
-  d_deriv = smooth(d_deriv, 20)
+  d_deriv = smooth(d_deriv, 20) ; smooth with around 20 points
   return, d_deriv
-  ; d_deriv = abs(deriv(x, d_deriv))
 end
 
+; calculate the regions for each wave with
+; started point, ended point and minimum point
 function find_absp_region, data, wl, threshold1, threshold2
   res = list()
   if n_elements(data) lt 3 then return, res
@@ -184,11 +182,11 @@ function find_absp_region, data, wl, threshold1, threshold2
     endif
   endif
   
-;  for k = 0, n_elements(regions)-1 do begin
-;    print, "regions "+k
-;    print, regions[k]
-;  end
-  ; print, res
+  ;  for k = 0, n_elements(regions)-1 do begin
+  ;    print, "regions "+k
+  ;    print, regions[k]
+  ;  end
+
   extr_min_res = list()
   ; get the extreme minmum
   for i = 1, n_elements(res) - 2 do begin
@@ -199,16 +197,13 @@ function find_absp_region, data, wl, threshold1, threshold2
     ; print, ml, mr
     if ml lt 0 && mr gt 0 then extr_min_res.add, i
   end
-;   print, extr_min_res
-  
+
   ; get the extreme minmum, left shoulder, right shoulder
   region_res = list()
   for i = 0, n_elements(extr_min_res) - 1 do begin
     idx = extr_min_res[i]
-;    region_res.add, [res[idx], res[idx-1], res[idx+1]]
     region_res.add, [res[idx], (regions[idx-1])[-1], (regions[idx+1])[0]]
   end
-;  print, region_res
   return, region_res
 end
 
@@ -237,10 +232,8 @@ pro process, fpath, outdir, smoothVar, thresh1, thresh2
 ;  smoothVar = 20
 ;  thresh1 = 12
 ;  thresh2 = 0.0001
-;  fpath = "C:\Users\LiangFan\Desktop\45samples\b29real.sli"
-;  outdir = "C:\Users\LiangFan\Desktop\45samples"
-;  fpath = "D:\Documents\spectrum-v2\data\SLI-NE-76.sli"
-;  outdir = "D:\Documents\spectrum-v2\data"
+;  fpath = "D:\Documents\spectrum\data\SLI-NE-76.sli"
+;  outdir = "D:\Documents\spectrum\data"
   
   fileName = FILE_BASENAME(fpath)
   pointPos = STRPOS(fileName,'.')
@@ -272,22 +265,21 @@ pro process, fpath, outdir, smoothVar, thresh1, thresh2
   
   ; Get spectrum for the target from the input spectral library. 
   rdata = ENVI_GET_SLICE(fid=fid, line=0, pos=0, xs=dims[1], xe=dims[2])
-  ; here, we get the reflectance data and wavelength 
-  help, rdata, wl
+
+  ; the reflectance data and wavelength 
+  ; help, rdata, wl
 
   ; get the current window widget for painting
   w = WINDOW(window_title=fileName, dimensions=[900,600])
   
-  ; original graph
-;  p1 = PLOT([0],[0], xrange=[MIN(wl),MAX(wl)], xtitle='wavelength (nm)',ytitle='reflectance (%)', $
-;      yrange=[0,1],xstyle=1,ystyle=1, title = fileName, /current, position=[.1,.2,0.95,0.9])
   YRANGE_LOW  = 0
   YRANGE_HIGH = 1.02
   p1 = PLOT([0],[0], xrange=[MIN(wl),MAX(wl)], xtitle='波长 （nm）',ytitle='反射率 ', $
       yrange=[YRANGE_LOW,YRANGE_HIGH],xstyle=1, ystyle=1, title = fileName, /current, position=[.1,.2,0.9,0.9], font_name = 'SimSun')
       
-;  p1 = PLOT(wl,rdata, 'b--' ,xrange=[MIN(wl),MAX(wl)], xtitle='wavelength (nm)',ytitle='reflectance (%)', $
-;      yrange=[0,1],xstyle=1,ystyle=1, name = "original spectrum",title = fileName, /current, position=[.1,.2,0.95,0.9])
+  ; original graph
+  ; p1 = PLOT(wl,rdata, 'b--' ,xrange=[MIN(wl),MAX(wl)], xtitle='wavelength (nm)',ytitle='reflectance (%)', $
+  ;     yrange=[YRANGE_LOW,YRANGE_HIGH],xstyle=1,ystyle=1, name = "original spectrum",title = fileName, /current, position=[.1,.2,0.95,0.9])
   
   yaxis = AXIS('Y', LOCATION=[max(wl),0], Title = " 包络线去除归一化值", TEXTPOS=1, TICKVALUES=[0,0.2,0.4,0.6,0.8,1], font_name = 'SimSun')   
   rn_idx = remove_anomal_region(rdata)
@@ -297,7 +289,6 @@ pro process, fpath, outdir, smoothVar, thresh1, thresh2
   for i = 0, n_elements(rn_idx)-1 do begin
     rn_idx_i = rn_idx[i]
     xs = rn_idx_i[0]
-;    print, xs
     xe = rn_idx_i[1]
     ; substract original data
     p2 = PLOT(wl[xs:xe], rdata[xs:xe], OVERPLOT =1,xrange=[MIN(wl),MAX(wl)],yrange=[YRANGE_LOW,YRANGE_HIGH],xstyle=1,ystyle=1,$
@@ -308,7 +299,6 @@ pro process, fpath, outdir, smoothVar, thresh1, thresh2
       sub_data = smooth(sub_data, span)
       sub_data = smooth(sub_data, span)
     endif else sub_data = rdata[xs:xe]
-    ;p=PLOT(wl[xs:xe], sub_data,OVERPLOT =1,xrange=[min(wl),max(wl)],yrange=[0,1],xstyle=1,ystyle=1)
     
     cr_ref = wl[xs:xe]
     cr_ref = continuum_remove(wl[xs:xe], sub_data, min(wl),max(wl))
@@ -316,13 +306,15 @@ pro process, fpath, outdir, smoothVar, thresh1, thresh2
     if n_elements(cr_ref) gt smoothVar then cr_ref=smooth(cr_ref,smoothVar)
     
     absp_region = find_absp_region(cr_ref, wl, thresh1, thresh2)
-;     derive_region = get_derive(cr_ref) * 100
-;     p100 = PLOT(wl[xs:xe], derive_region, '-', OVERPLOT =1, xrange=[min(wl),max(wl)],yrange=[YRANGE_LOW,YRANGE_HIGH], xstyle=1,ystyle=1,$
-;         name = " debug", /current) ; continuum removal  
+
+    ; plot the derived reflectance data 
+    ; derive_region = get_derive(cr_ref) * 50
+    ; p100 = PLOT(wl[xs:xe], derive_region, '-', OVERPLOT =1, xrange=[min(wl),max(wl)],yrange=[YRANGE_LOW,YRANGE_HIGH], xstyle=1,ystyle=1,$
+    ;     name = " debug", /current) ; continuum removal  
             
     ; continuum removal graph
     p3 = PLOT(wl[xs:xe], cr_ref, '-:', OVERPLOT =1, xrange=[min(wl),max(wl)],yrange=[0,YRANGE_HIGH], xstyle=1,ystyle=1,$
-          name = " 包络线去除后的光谱曲线", /current) ; continuum removal  
+          name = "包络线去除后的光谱曲线", /current) ; continuum removal  
         
     for j = 0, n_elements(absp_region) - 1 do begin
       absp_x = absp_region[j] 
