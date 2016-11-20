@@ -75,10 +75,18 @@ function find_anomal_region, data
   x = indgen(ss)
   d_deriv = deriv(x, data)
   d_deriv = abs(deriv(x, d_deriv))
+  
+  ;;;;;;;;;
+  ; previous 
   dd_idx = where(d_deriv gt 0.003)
+  
+  ; for remote sensing data
+  ; dd_idx = where(d_deriv gt 0.008)
+  ;;;;;;;;;
+  
   d_size = n_elements(dd_idx)
   region = list()
-  if d_size eq 0 then return, region
+  if d_size eq 0 or dd_idx[0] eq -1 then return, region
   s1 = dd_idx[0]
   for i = 1, d_size - 1 do begin
     if (dd_idx[i] - dd_idx[i-1]) lt 60 then continue
@@ -121,7 +129,15 @@ end
 ; smooth the derivative curve for each point
 function get_derive, data
   d_deriv = deriv(indgen(n_elements(data)), data)
+  
+  ;;;;;;;;;
+  ; previous 
   d_deriv = smooth(d_deriv, 20) ; smooth with around 20 points
+  
+  ; for remote sensing data
+  ; d_deriv = smooth(d_deriv, 4) ; smooth with around 20 points
+  ;;;;;;;;;
+
   return, d_deriv
 end
 
@@ -201,8 +217,8 @@ function find_absp_region, data, wl, threshold1, threshold2
   ; get the extreme minmum, left shoulder, right shoulder
   region_res = list()
   for i = 0, n_elements(extr_min_res) - 1 do begin
-    idx = extr_min_res[i]
-    region_res.add, [res[idx], (regions[idx-1])[-1], (regions[idx+1])[0]]
+     idx = extr_min_res[i]
+     region_res.add, [res[idx], (regions[idx-1])[-1], (regions[idx+1])[0]]
   end
   return, region_res
 end
@@ -229,11 +245,11 @@ end
 ; 5. calculate the xxx, xxx, xxx 
 pro process, fpath, outdir, smoothVar, thresh1, thresh2
   COMPILE_OPT IDL2
-;  smoothVar = 20
-;  thresh1 = 12
-;  thresh2 = 0.0001
-;  fpath = "D:\Documents\spectrum\data\SLI-NE-76.sli"
-;  outdir = "D:\Documents\spectrum\data"
+;  smoothVar = 1
+;  thresh1 = 1
+;  thresh2 = 0.015
+;  fpath = "Z:\Documents\Parallels\envi-spectrum\data\n1.sli"
+;  outdir = "Z:\Documents\Parallels\envi-spectrum\data"
   
   fileName = FILE_BASENAME(fpath)
   pointPos = STRPOS(fileName,'.')
@@ -263,6 +279,9 @@ pro process, fpath, outdir, smoothVar, thresh1, thresh2
   band_size = nb + 1
   if band_size > 1 then print, "Only process one band"
   
+  ; convert float wl to integer
+  wl = ROUND(wl)
+  
   ; Get spectrum for the target from the input spectral library. 
   rdata = ENVI_GET_SLICE(fid=fid, line=0, pos=0, xs=dims[1], xe=dims[2])
 
@@ -274,12 +293,17 @@ pro process, fpath, outdir, smoothVar, thresh1, thresh2
   
   YRANGE_LOW  = 0
   YRANGE_HIGH = 1.02
+
+  ; for remote sensing data
+  ; rdata = rdata / 10000
+  ;;;;;;;;;
+
   p1 = PLOT([0],[0], xrange=[MIN(wl),MAX(wl)], xtitle='波长 （nm）',ytitle='反射率 ', $
       yrange=[YRANGE_LOW,YRANGE_HIGH],xstyle=1, ystyle=1, title = fileName, /current, position=[.1,.2,0.9,0.9], font_name = 'SimSun')
       
   ; original graph
-  ; p1 = PLOT(wl,rdata, 'b--' ,xrange=[MIN(wl),MAX(wl)], xtitle='wavelength (nm)',ytitle='reflectance (%)', $
-  ;     yrange=[YRANGE_LOW,YRANGE_HIGH],xstyle=1,ystyle=1, name = "original spectrum",title = fileName, /current, position=[.1,.2,0.95,0.9])
+;   p00 = PLOT(wl,rdata, 'b--',OVERPLOT =1,xrange=[MIN(wl),MAX(wl)], yrange=[YRANGE_LOW,YRANGE_HIGH],xstyle=1,ystyle=1, $
+;          name = "original spectrum",/current)
   
   yaxis = AXIS('Y', LOCATION=[max(wl),0], Title = " 包络线去除归一化值", TEXTPOS=1, TICKVALUES=[0,0.2,0.4,0.6,0.8,1], font_name = 'SimSun')   
   rn_idx = remove_anomal_region(rdata)
@@ -305,8 +329,6 @@ pro process, fpath, outdir, smoothVar, thresh1, thresh2
     ; smooth the continuum values
     if n_elements(cr_ref) gt smoothVar then cr_ref=smooth(cr_ref,smoothVar)
     
-    absp_region = find_absp_region(cr_ref, wl, thresh1, thresh2)
-
     ; plot the derived reflectance data 
     ; derive_region = get_derive(cr_ref) * 50
     ; p100 = PLOT(wl[xs:xe], derive_region, '-', OVERPLOT =1, xrange=[min(wl),max(wl)],yrange=[YRANGE_LOW,YRANGE_HIGH], xstyle=1,ystyle=1,$
@@ -314,13 +336,17 @@ pro process, fpath, outdir, smoothVar, thresh1, thresh2
             
     ; continuum removal graph
     p3 = PLOT(wl[xs:xe], cr_ref, '-:', OVERPLOT =1, xrange=[min(wl),max(wl)],yrange=[0,YRANGE_HIGH], xstyle=1,ystyle=1,$
-          name = "包络线去除后的光谱曲线", /current) ; continuum removal  
+          name = " 包络线去除后的光谱曲线", /current)  
+    
+    absp_region = find_absp_region(cr_ref, wl, thresh1, thresh2)
    
+    ; continuum removal
     for j = 0, n_elements(absp_region) - 1 do begin
       absp_x = absp_region[j] 
       absp_y = rdata[absp_x + xs]
       cr_ref_y = cr_ref[absp_x]
-      absp_x += wl[xs]
+      ; absp_x += wl[xs]   ; can only consuccessfully
+      absp_x = wl[absp_x + xs]
       min_x = [absp_x[0]]
       min_y = [absp_y[0]]
       min_cr_ref_y = [cr_ref_y[0]]
