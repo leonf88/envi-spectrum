@@ -78,10 +78,12 @@ function find_anomal_region, data
   
   ;;;;;;;;;
   ; previous 
-  dd_idx = where(d_deriv gt 0.003)
+  ; dd_idx = where(d_deriv gt 0.003)
+  ; span = 60
   
   ; for remote sensing data
-  ; dd_idx = where(d_deriv gt 0.008)
+  dd_idx = where(d_deriv gt 0.08)
+  span =10
   ;;;;;;;;;
   
   d_size = n_elements(dd_idx)
@@ -89,7 +91,7 @@ function find_anomal_region, data
   if d_size eq 0 or dd_idx[0] eq -1 then return, region
   s1 = dd_idx[0]
   for i = 1, d_size - 1 do begin
-    if (dd_idx[i] - dd_idx[i-1]) lt 60 then continue
+    if (dd_idx[i] - dd_idx[i-1]) lt span then continue
     if dd_idx[i] ne s1 then begin
       if (dd_idx[i-1] - s1) gt 10 then begin
         _head = s1
@@ -132,10 +134,10 @@ function get_derive, data
   
   ;;;;;;;;;
   ; previous 
-  d_deriv = smooth(d_deriv, 20) ; smooth with around 20 points
+  ;d_deriv = smooth(d_deriv, 20) ; smooth with around 20 points
   
   ; for remote sensing data
-  ; d_deriv = smooth(d_deriv, 4) ; smooth with around 20 points
+  d_deriv = smooth(d_deriv, 4) ; smooth with around 20 points
   ;;;;;;;;;
 
   return, d_deriv
@@ -245,9 +247,9 @@ end
 ; 5. calculate the xxx, xxx, xxx 
 pro process, fpath, outdir, smoothVar, thresh1, thresh2
   COMPILE_OPT IDL2
-;  smoothVar = 1
-;  thresh1 = 1
-;  thresh2 = 0.015
+  smoothVar = 1
+  thresh1 = 1
+  thresh2 = 0.015
 ;  fpath = "Z:\Documents\Parallels\envi-spectrum\data\n1.sli"
 ;  outdir = "Z:\Documents\Parallels\envi-spectrum\data"
   
@@ -295,14 +297,14 @@ pro process, fpath, outdir, smoothVar, thresh1, thresh2
   YRANGE_HIGH = 1.02
 
   ; for remote sensing data
-  ; rdata = rdata / 10000
+  rdata = rdata / 10000
   ;;;;;;;;;
 
   p1 = PLOT([0],[0], xrange=[MIN(wl),MAX(wl)], xtitle='波长 （nm）',ytitle='反射率 ', $
       yrange=[YRANGE_LOW,YRANGE_HIGH],xstyle=1, ystyle=1, title = fileName, /current, position=[.1,.2,0.9,0.9], font_name = 'SimSun')
       
   ; original graph
-;   p00 = PLOT(wl,rdata, 'b--',OVERPLOT =1,xrange=[MIN(wl),MAX(wl)], yrange=[YRANGE_LOW,YRANGE_HIGH],xstyle=1,ystyle=1, $
+;  p1 = PLOT(wl,rdata, 'b--',OVERPLOT =1,xrange=[MIN(wl),MAX(wl)], yrange=[YRANGE_LOW,YRANGE_HIGH],xstyle=1,ystyle=1, $
 ;          name = "original spectrum",/current)
   
   yaxis = AXIS('Y', LOCATION=[max(wl),0], Title = " 包络线去除归一化值", TEXTPOS=1, TICKVALUES=[0,0.2,0.4,0.6,0.8,1], font_name = 'SimSun')   
