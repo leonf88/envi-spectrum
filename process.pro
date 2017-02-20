@@ -52,16 +52,20 @@ function continuum_remove, wave, refl, ws, we
   for i = 1, cr_points_len - 1 do begin
     span = tmp_idx[i] - tmp_idx[i-1]
     if span eq 1 then begin
-      interp_ref = [interp_ref, tmp_ref[i]]
-    endif
-    x=[[tmp_wav[i],1],[tmp_wav[i-1],1]]
-    y=[tmp_ref[i],tmp_ref[i-1]]
-    p=invert(x)##y
-    interp_res = p[0] * wave[tmp_idx[i-1]+1:tmp_idx[i]]+p[1]
-    interp_ref=[interp_ref , interp_res]
+      ; interp_ref = [interp_ref, tmp_ref[i]]
+      interp_ref = [interp_ref, refl[tmp_idx[i]]]
+    endif else begin
+      x=[[tmp_wav[i],1],[tmp_wav[i-1],1]]
+      ; y=[tmp_ref[i],tmp_ref[i-1]]
+      y=[refl[tmp_idx[i]],refl[tmp_idx[i-1]]]
+      p=invert(x)##y
+      interp_res = p[0] * wave[tmp_idx[i-1]+1:tmp_idx[i]]+p[1]
+      interp_ref=[interp_ref , interp_res]
+    endelse
   end
-  interp_ref=[interp_ref,refl[len]]
+  ; interp_ref=[interp_ref,refl[len]]
   cr_ref=refl/interp_ref
+  print, n_elements(refl)
   
   return, cr_ref
 end
@@ -143,6 +147,57 @@ function get_derive, data
   return, d_deriv
 end
 
+function find_max_peak_index, data
+  sm_w = 1
+  st_p = sm_w
+  ed_p = n_elements(data) - sm_w - 1
+  ret = list()
+  for p = st_p, ed_p do begin
+    prev_avg_y = total(data[p - sm_w: p - 1   ])/sm_w
+    next_avg_y = total(data[p + 1   : p + sm_w])/sm_w
+    curr_p_y = data[p]
+    if curr_p_y gt prev_avg_y and curr_p_y gt next_avg_y then begin
+      ret.add, p
+    endif else if curr_p_y gt prev_avg_y and curr_p_y eq next_avg_y then begin
+      ret.add, p
+    endif else if curr_p_y eq prev_avg_y and curr_p_y gt next_avg_y then begin
+      ret.add, p
+    endif
+  endfor
+  
+  return, ret
+end
+
+function find_absp_minimum, data
+  sm_w = 1
+  st_p = sm_w
+  ed_p = n_elements(data) - sm_w - 1
+  ret = list()
+  max_peak = list(1)
+  max_peak.add, find_max_peak_index(data), /EXTRACT
+  max_peak.add, ed_p
+  
+  fmpi_len = n_elements(max_peak)
+  for p = st_p, ed_p do begin
+    prev_avg_y = total(data[p - sm_w: p - 1   ])/sm_w
+    next_avg_y = total(data[p + 1   : p + sm_w])/sm_w
+    curr_p_y = data[p]
+    if curr_p_y lt prev_avg_y and curr_p_y lt next_avg_y then begin
+      prev_p = 0
+      next_p = 0
+      for i = 1, fmpi_len do begin
+        if max_peak[i] gt p then begin
+          prev_p = max_peak[i - 1]
+          next_p = max_peak[i]
+          ret.add, [p, prev_p, next_p]
+          break
+        endif
+      endfor
+    endif
+  endfor
+  return, ret
+end
+
 ; calculate the regions for each wave with
 ; started point, ended point and minimum point
 function find_absp_region, data, wl, threshold1, threshold2
@@ -152,7 +207,7 @@ function find_absp_region, data, wl, threshold1, threshold2
   abs_d_deriv = abs(d_deriv)
   abs_d_deriv[0] = 0
   abs_d_deriv[n_elements(data) - 1] = 0
-  ; extrem value is nearly equal to zero
+;  ; extrem value is nearly equal to zero
   d_idx = where(abs_d_deriv lt threshold2)
   s = n_elements(d_idx)
   if s eq 0 then return, res
@@ -249,9 +304,9 @@ pro process, fpath, outdir, smoothVar, thresh1, thresh2
   COMPILE_OPT IDL2
   smoothVar = 1
   thresh1 = 1
-  thresh2 = 0.015
-;  fpath = "Z:\Documents\Parallels\envi-spectrum\data\n1.sli"
-;  outdir = "Z:\Documents\Parallels\envi-spectrum\data"
+  thresh2 = 0.01
+  ;fpath = "Z:\Documents\Parallels\envi-spectrum\data\n1.sli"
+  ;outdir = "Z:\Documents\Parallels\envi-spectrum\data"
   
   fileName = FILE_BASENAME(fpath)
   pointPos = STRPOS(fileName,'.')
@@ -340,7 +395,8 @@ pro process, fpath, outdir, smoothVar, thresh1, thresh2
     p3 = PLOT(wl[xs:xe], cr_ref, '-:', OVERPLOT =1, xrange=[min(wl),max(wl)],yrange=[0,YRANGE_HIGH], xstyle=1,ystyle=1,$
           name = " 包络线去除后的光谱曲线", /current)  
     
-    absp_region = find_absp_region(cr_ref, wl, thresh1, thresh2)
+    absp_region = find_absp_minimum(cr_ref)
+    ; absp_region = find_absp_region(cr_ref, wl, thresh1, thresh2)
    
     ; continuum removal
     for j = 0, n_elements(absp_region) - 1 do begin

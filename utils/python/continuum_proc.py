@@ -114,6 +114,9 @@ def scipy_hull(points):
 def find_minimum(points, smooth_width = 1):
     """
     data is two dimension array, np.array([[x1, y1], [x2, y2], ...])
+    return the minimum points on the curve
+
+    ::return [p1, p2, ...]
     """
     points = np.array(points)
     sm_w = 1
@@ -136,6 +139,59 @@ def find_minimum(points, smooth_width = 1):
 
     return np.array(ret)
 
+def find_absorption_range(points, smooth_width = 1):
+    """
+    data is two dimension array, np.array([[x1, y1], [x2, y2], ...])
+    return the absoprtion ranges on the curve. One absoprtion range
+    includes two shoulders and one valley.
+
+    ::return [[valley1, left_shoulder1, right_shoulder1], [valley2, left_shoulder2, right_shoulder2], ...]
+    """
+    points = np.array(points)
+    sm_w = 1
+    st_p = sm_w
+    ed_p = len(points) - sm_w
+
+    ret = []
+    for p in xrange(st_p, ed_p):
+        prev_avg_y = sum(points[p - sm_w: p        , 1]) / sm_w
+        next_avg_y = sum(points[p + 1: p + 1 + sm_w, 1]) / sm_w
+        curr_p_y = points[p, 1]
+        if curr_p_y < prev_avg_y and curr_p_y < next_avg_y:
+            absorp = [points[p]]
+            curr_p = p - 1
+            front_p = curr_p - 1
+            back_p = curr_p + 1
+
+            while curr_p >= 1:
+                if points[curr_p, 1] == 1 or (points[front_p, 1] < points[curr_p, 1] and points[back_p, 1] < points[curr_p, 1]):
+                    absorp.append(points[curr_p])
+                    break
+                curr_p = curr_p - 1
+                front_p = curr_p - 1
+                back_p = curr_p + 1
+
+            if curr_p == 0:
+                absorp.append(points[0])
+
+            curr_p = p + 1
+            front_p = curr_p - 1
+            back_p = curr_p + 1
+            while curr_p < ed_p - 1:
+                if points[curr_p, 1] == 1 or (points[front_p, 1] < points[curr_p, 1] and points[back_p, 1] < points[curr_p, 1]):
+                    absorp.append(points[curr_p])
+                    break
+                curr_p = curr_p + 1
+                front_p = curr_p - 1
+                back_p = curr_p + 1
+
+            if curr_p == ed_p - 1:
+                absorp.append(points[ed_p - 1])
+
+            ret.append(absorp)
+
+    return np.array(ret)
+
 def draw_graph(points_array, points):
     """
     array of points, [
@@ -150,7 +206,14 @@ def draw_graph(points_array, points):
         ps = np.array(ps)
         plt.plot(ps[:, 0], ps[:, 1])
 
-    plt.plot(points[:, 0], points[:, 1], 'ro')
+    valley_ps = points[:, 0]
+    left_bd = points[:, 1]
+    right_bd = points[:, 2]
+
+    # plt.plot(points[:, 0], points[:, 1], 'ro')
+    plt.plot(valley_ps[:, 0], valley_ps[:, 1], 'ro')
+    plt.plot(left_bd[:, 0], left_bd[:, 1], 'bo')
+    plt.plot(right_bd[:, 0], right_bd[:, 1], 'bo')
 
     plt.show()
 
@@ -169,5 +232,9 @@ if __name__ == '__main__':
     cr_ref, interp_ref = remove_continuum(d)
 
     min_points = find_minimum(cr_ref)
-    draw_graph([d, cr_ref, interp_ref], min_points)
+    absorp_points = find_absorption_range(cr_ref)
+    print min_points
+    print absorp_points
+    draw_graph([d, cr_ref, interp_ref], absorp_points)
+    # draw_graph([d, cr_ref, interp_ref], min_points)
     # scipy_hull(np.array(d))

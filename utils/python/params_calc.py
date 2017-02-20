@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
+import os
 import sys
 import math
 
@@ -39,14 +40,26 @@ def calc_params(spectra_data):
 
     return mcari2, ndvi, rvi, evi, osavi, msavi, tci, rep, arvi
 
-data_path = 'processed'
-onlyfiles = [f for f in listdir(data_path) if isfile(join(data_path, f))]
-hdr_files = filter(lambda f: splitext(f)[1].lower() == '.hdr', onlyfiles)
+if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        print "Usage: %s <path>" % sys.argv[0]
+        sys.exit(-1)
 
-with open('out.csv', 'w') as fout:
-    fout.write("filename, mcari2, ndvi, rvi, evi, osavi, msavi, tci, rep, arvi\n")
-    for filename in hdr_files:
-        f_path = join(data_path, filename)
-        envi_r = EnviReader(f_path)
-        d = envi_r.get_data_as_map()
-        fout.write(filename + ',' + ','.join(map(lambda e: str(e), calc_params(d))) + '\n')
+    data_path = sys.argv[1]
+    if not os.path.isdir(sys.argv[1]):
+        print "%s is not directory." % data_path
+    else:
+        print "process %s" % data_path
+        output_file = os.path.basename(data_path) + ".csv"
+
+        onlyfiles = [f for f in listdir(data_path) if isfile(join(data_path, f))]
+        hdr_files = filter(lambda f: splitext(f)[1].lower() == '.hdr', onlyfiles)
+
+        with open(output_file, "w") as fout:
+            fout.write("filename, mcari2, ndvi, rvi, evi, osavi, msavi, tci, rep, arvi\n")
+            for filename in hdr_files:
+                f_path = join(data_path, filename)
+                envi_r = EnviReader(f_path)
+                d = envi_r.get_processed_data_as_map(10000)
+                fout.write(filename + "," + ",".join(map(lambda e: str(e), calc_params(d))) + '\n')
+        print "generate target file: %s" % output_file
