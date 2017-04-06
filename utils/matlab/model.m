@@ -1,10 +1,18 @@
 function model
 % data start from column 2 and row 1
-model_file = 'data/model.csv';
-test_file = 'data/test.csv';
 
-%model_file = 'data/model-mini.csv'
-%test_file = 'data/test-mini.csv'
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%% ATTENTION: modify the model_file and test_file parameter as you need
+% user define data to train model 
+model_file = 'data/demo/model-mini.csv'
+% user define data to test the model
+test_file  = 'data/demo/test-mini.csv'
+
+% model_file = 'data/model.csv';
+% test_file = 'data/test.csv';
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
 fid = fopen(model_file);
 tline = fgetl(fid);
 names = strsplit(tline, ',');
